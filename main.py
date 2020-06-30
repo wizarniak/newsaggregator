@@ -3,11 +3,15 @@ import requests
 import requests.auth
 import config
 import json
+from datetime import datetime
+import functools
 
 app = FastAPI()
 
 MAX_RESULTS = 5
 reddit_access_token = None
+time_token_generated = None
+SIZE_LRU_CACHES = 128
 
 @app.get("/")
 async def home():
@@ -15,10 +19,10 @@ async def home():
 
 @app.get("/news")
 async def get_news(query: str = None):
-    global reddit_access_token
-    print(reddit_access_token)
-    if (not reddit_access_token):
+    global reddit_access_token, time_token_generated
+    if (not reddit_access_token or (datetime.now() - time_token_generated).total_seconds() / 60 > 55):
         reddit_access_token = get_reddit_access_token()
+        time_token_generated = datetime.now()
     if query:
         reddit_news = search_reddit_news(reddit_access_token, query)
         newsapi_news = search_newsapi_news(query)
@@ -34,6 +38,7 @@ def get_reddit_access_token():
     headers={"User-Agent":config.reddit_user_agent})
     return json.loads(response.content)["access_token"]
 
+@functools.lru_cache(maxsize=SIZE_LRU_CACHES)
 def get_reddit_news(access_token):
     url = "https://oauth.reddit.com/r/worldnews/hot"
     params = {"limit": MAX_RESULTS}
@@ -48,6 +53,7 @@ def get_reddit_news(access_token):
         news.append(news_item)
     return news
 
+@functools.lru_cache(maxsize=SIZE_LRU_CACHES)
 def search_reddit_news(access_token, query):
     url = "https://oauth.reddit.com/r/worldnews/search"
     params = {"limit": MAX_RESULTS, "q": query, "restrict_sr": True}
@@ -62,6 +68,7 @@ def search_reddit_news(access_token, query):
         news.append(news_item)
     return news
 
+@functools.lru_cache(maxsize=SIZE_LRU_CACHES)
 def get_newsapi_news():
     url = "https://newsapi.org/v2/top-headlines"
     params = {"category": "general", "pageSize": MAX_RESULTS}
@@ -76,6 +83,7 @@ def get_newsapi_news():
         news.append(news_item)
     return news
 
+@functools.lru_cache(maxsize=SIZE_LRU_CACHES)
 def search_newsapi_news(query):
     url = "https://newsapi.org/v2/everything"
     params = {"pageSize": MAX_RESULTS, "q": query, "language": "en", "sortBy": "relevancy"}
