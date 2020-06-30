@@ -7,6 +7,7 @@ import json
 app = FastAPI()
 
 MAX_RESULTS = 5
+reddit_access_token = None
 
 @app.get("/")
 async def home():
@@ -14,7 +15,10 @@ async def home():
 
 @app.get("/news")
 async def get_news(query: str = None):
-    reddit_access_token = get_reddit_access_token()
+    global reddit_access_token
+    print(reddit_access_token)
+    if (not reddit_access_token):
+        reddit_access_token = get_reddit_access_token()
     if query:
         reddit_news = search_reddit_news(reddit_access_token, query)
         newsapi_news = search_newsapi_news(query)
@@ -46,9 +50,9 @@ def get_reddit_news(access_token):
 
 def search_reddit_news(access_token, query):
     url = "https://oauth.reddit.com/r/worldnews/search"
-    params = {"limit": MAX_RESULTS, "q": query}
+    params = {"limit": MAX_RESULTS, "q": query, "restrict_sr": True}
     response = requests.get(url,
-    headers={"Authorization": "bearer " + access_token, "User-Agent":config.reddit_user_agent, "q": query},
+    headers={"Authorization": "bearer " + access_token, "User-Agent":config.reddit_user_agent},
     params = params)
     news = []
     for item in json.loads(response.content)["data"]["children"]:
@@ -60,7 +64,7 @@ def search_reddit_news(access_token, query):
 
 def get_newsapi_news():
     url = "https://newsapi.org/v2/top-headlines"
-    params = {"category": "general", "pageSize": 5}
+    params = {"category": "general", "pageSize": MAX_RESULTS}
     response = requests.get(url,
     headers={"Authorization": "bearer " + config.news_api_key},
     params = params)
@@ -74,7 +78,7 @@ def get_newsapi_news():
 
 def search_newsapi_news(query):
     url = "https://newsapi.org/v2/everything"
-    params = {"pageSize": 5, "q": query, "language": "en", "sortBy": "relevancy"}
+    params = {"pageSize": MAX_RESULTS, "q": query, "language": "en", "sortBy": "relevancy"}
     response = requests.get(url,
     headers={"Authorization": "bearer " + config.news_api_key},
     params = params)
