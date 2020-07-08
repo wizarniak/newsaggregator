@@ -16,12 +16,12 @@ class NewsAggregator:
     def listing(self):
         news = []
         for api in self.apis:
-            news.append(api.listing())
+            news.extend(api.listing())
         return news
 
     @functools.lru_cache(maxsize=SIZE_LRU_CACHES)
     def search(self, query):
         news = []
         for api in self.apis:
-            news.append(api.search(query))
+            news.extend(api.search(query))
         return news
